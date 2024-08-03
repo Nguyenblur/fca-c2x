@@ -427,78 +427,107 @@ function makeLogin(jar, email, password, loginOptions, callback, prCallback) {
 
 // Helps the login
 function loginHelper(appState, email, password, globalOptions, callback, prCallback) {
-  var mainPromise = null;
-  var jar = utils.getJar();
+	let mainPromise = null;
+	const jar = utils.getJar();
 
-  // If we're given an appState we loop through it and save each cookie
-  // back into the jar.
-  if (appState) {
-    appState.map(function (c) {
-      var str = c.key + "=" + c.value + "; expires=" + c.expires + "; domain=" + c.domain + "; path=" + c.path + ";";
-      jar.setCookie(str, "http://" + c.domain);
-    });
+	// If we're given an appState we loop through it and save each cookie
+	// back into the jar.
+	if (appState) {
+		// check and convert cookie to appState
+		if (utils.getType(appState) === 'Array' && appState.some(c => c.name)) {
+			appState = appState.map(c => {
+				c.key = c.name;
+				delete c.name;
+				return c;
+			});
+		}
+		else if (utils.getType(appState) === 'String') {
+			const arrayAppState = [];
+			appState.split(';').forEach(c => {
+				const [key, value] = c.split('=');
 
-    // Load the main page.
-    mainPromise = utils.get('https://www.facebook.com/', jar, null, globalOptions, { noRef: true }).then(utils.saveCookies(jar));
-  }
-  else {
-    // Open the main page, then we login with the given credentials and finally
-    // load the main page again (it'll give us some IDs that we need)
-    mainPromise = utils
-      .get("https://www.facebook.com/", null, null, globalOptions, { noRef: true })
-      .then(utils.saveCookies(jar))
-      .then(makeLogin(jar, email, password, globalOptions, callback, prCallback))
-      .then(function () {
-        return utils.get('https://www.facebook.com/', jar, null, globalOptions).then(utils.saveCookies(jar));
-      });
-  }
+				arrayAppState.push({
+					key: (key || "").trim(),
+					value: (value || "").trim(),
+					domain: "facebook.com",
+					path: "/",
+					expires: new Date().getTime() + 1000 * 60 * 60 * 24 * 365
+				});
+			});
+			appState = arrayAppState;
+		}
 
-  var ctx = null;
-  var _defaultFuncs = null;
-  var api = null;
+		appState.map(function (c) {
+			const str = c.key + "=" + c.value + "; expires=" + c.expires + "; domain=" + c.domain + "; path=" + c.path + ";";
+			jar.setCookie(str, "http://" + c.domain);
+		});
 
-  mainPromise = mainPromise
-    .then(function (res) {
-      // Hacky check for the redirection that happens on some ISPs, which doesn't return statusCode 3xx
-      var reg = /<meta http-equiv="refresh" content="0;url=([^"]+)[^>]+>/;
-      var redirect = reg.exec(res.body);
-      if (redirect && redirect[1]) return utils.get(redirect[1], jar, null, globalOptions).then(utils.saveCookies(jar));
-      return res;
-    })
-    .then(function (res) {
-      var html = res.body;
-      var stuff = buildAPI(globalOptions, html, jar);
-      ctx = stuff[0];
-      _defaultFuncs = stuff[1];
-      api = stuff[2];
-      return res;
-    });
+		// Load the main page.
+		mainPromise = utils
+			.get('https://www.facebook.com/', jar, null, globalOptions, { noRef: true })
+			.then(utils.saveCookies(jar));
+	} else {
+		if (email) {
+			throw { error: "Currently, the login method by email and password is no longer supported, please use the login method by appState" };
+		}
+		else {
+			throw { error: "No appState given." };
+		}
+	}
 
-  // given a pageID we log in as a page
-  if (globalOptions.pageID) {
-    mainPromise = mainPromise
-      .then(function () {
-        return utils.get('https://www.facebook.com/' + ctx.globalOptions.pageID + '/messages/?section=messages&subsection=inbox', ctx.jar, null, globalOptions);
-      })
-      .then(function (resData) {
-        var url = utils.getFrom(resData.body, 'window.location.replace("https:\\/\\/www.facebook.com\\', '");').split('\\').join('');
-        url = url.substring(0, url.length - 1);
-        return utils.get('https://www.facebook.com' + url, ctx.jar, null, globalOptions);
-      });
-  }
+	let ctx = null;
+	let _defaultFuncs = null;
+	let api = null;
 
-  // At the end we call the callback or catch an exception
-  mainPromise
-    .then(function () {
-      log.info("login", 'Done logging in.');
-      return callback(null, api);
-    })
-    .catch(function (e) {
-      log.error("login", e.error || e);
-      callback(e);
-    });
+	mainPromise = mainPromise
+		.then(function (res) {
+			// Hacky check for the redirection that happens on some ISPs, which doesn't return statusCode 3xx
+			const reg = /<meta http-equiv="refresh" content="0;url=([^"]+)[^>]+>/;
+			const redirect = reg.exec(res.body);
+			if (redirect && redirect[1]) {
+				return utils
+					.get(redirect[1], jar, null, globalOptions)
+					.then(utils.saveCookies(jar));
+			}
+			return res;
+		})
+		.then(function (res) {
+			const html = res.body;
+			const stuff = buildAPI(globalOptions, html, jar);
+			ctx = stuff[0];
+			_defaultFuncs = stuff[1];
+			api = stuff[2];
+			return res;
+		});
+
+	// given a pageID we log in as a page
+	if (globalOptions.pageID) {
+		mainPromise = mainPromise
+			.then(function () {
+				return utils
+					.get('https://www.facebook.com/' + ctx.globalOptions.pageID + '/messages/?section=messages&subsection=inbox', ctx.jar, null, globalOptions);
+			})
+			.then(function (resData) {
+				let url = utils.getFrom(resData.body, 'window.location.replace("https:\\/\\/www.facebook.com\\', '");').split('\\').join('');
+				url = url.substring(0, url.length - 1);
+
+				return utils
+					.get('https://www.facebook.com' + url, ctx.jar, null, globalOptions);
+			});
+	}
+
+	// At the end we call the callback or catch an exception
+	mainPromise
+		.then(function () {
+			log.info("login", 'Done logging in.');
+			return callback(null, api);
+		})
+		.catch(function (e) {
+			log.error("login", e.error || e);
+			callback(e);
+		});
 }
-
+  
 function login(loginData, options, callback) {
   if (utils.getType(options) === 'Function' || utils.getType(options) === 'AsyncFunction') {
     callback = options;
