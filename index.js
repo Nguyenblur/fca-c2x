@@ -92,7 +92,7 @@ function buildAPI(globalOptions, html, jar) {
 		log.warn("login", "Checkpoint detected. Please log in with a browser to verify.");
 	}
 
-	const userID = maybeCookie[0].cookieString().split("=")[1].toString();
+	const userID = Object.values(jar._jar.store.idx['facebook.com']['/']).map($=>$.toString()).join(';').match(/i_user=([^;]+);/)?.[1]||maybeCookie[0].cookieString().split("=")[1].toString();
 	const i_userID = objCookie.i_user || null;
 	log.info("login", `Logged in as ${userID}`);
 
