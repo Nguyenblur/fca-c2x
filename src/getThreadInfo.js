@@ -156,8 +156,8 @@ module.exports = function (defaultFuncs, api, ctx) {
         // failure one.
         // @TODO What do we do in this case?
         if (resData[resData.length - 1].error_results !== 0) {
-          console.log(resData); //Log more info
-          throw new Error("well darn there was an error_result");
+        //  console.log(resData); //Log more info
+        //  throw new Error("well darn there was an error_result");
         }
         callback(null, formatThreadGraphQLResponse(resData[0]));
       })
