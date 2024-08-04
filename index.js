@@ -77,7 +77,7 @@ function setOptions(globalOptions, options) {
 }
 
 function buildAPI(globalOptions, html, jar) {
-var maybeCookie = jar
+  var maybeCookie = jar
   .getCookies("https://www.facebook.com");
 
 if (maybeCookie.some((val) => val.cookieString().split("=")[0] === "i_user")) {
@@ -99,12 +99,12 @@ if (html.indexOf("/checkpoint/block/?next") > -1) {
       "Checkpoint detected. Please log in with a browser to verify."
   );
 }
-  var userID = maybeCookie[0]
+
+var userID = maybeCookie[0]
   .cookieString()
   .split("=")[1]
   .toString();
-  
-  log.info("login", `Logged in as ${userID}`);
+log.info("login", `Logged in as ${userID}`);
 
   try {
     clearInterval(checkVerified);
@@ -174,7 +174,7 @@ if (html.indexOf("/checkpoint/block/?next") > -1) {
   };
 
   if (noMqttData) api["htmlData"] = noMqttData;
-	
+
   const apiFuncNames = [
     'addExternalModule',
     'addUserToGroup',
