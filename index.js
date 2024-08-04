@@ -77,15 +77,33 @@ function setOptions(globalOptions, options) {
 }
 
 function buildAPI(globalOptions, html, jar) {
-  var maybeCookie = jar.getCookies("https://www.facebook.com").filter(function (val) {
-    return val.cookieString().split("=")[0] === "c_user";
-  });
+var maybeCookie = jar
+  .getCookies("https://www.facebook.com");
 
-  if (maybeCookie.length === 0) throw { error: "Error retrieving userID. This can be caused by a lot of things, including getting blocked by Facebook for logging in from an unknown location. Try logging in with a browser to verify." };
+if (maybeCookie.some((val) => val.cookieString().split("=")[0] === "i_user")) {
+  maybeCookie = [maybeCookie.find((val) => val.cookieString().split("=")[0] === "i_user")];
+} else {
+  maybeCookie = maybeCookie.filter((val) => val.cookieString().split("=")[0] === "c_user");
+}
 
-  if (html.indexOf("/checkpoint/block/?next") > -1) log.warn("login", "Checkpoint detected. Please log in with a browser to verify.");
+if (maybeCookie.length === 0) {
+  throw {
+      error:
+          "Error retrieving userID. This can be caused by a lot of things, including getting blocked by Facebook for logging in from an unknown location. Try logging in with a browser to verify.",
+  };
+}
 
-  var userID = Object.values(jar._jar.store.idx['facebook.com']['/']).map($=>$.toString()).join(';').match(/i_user=([^;]+);/)?.[1]||maybeCookie[0].cookieString().split("=")[1].toString();
+if (html.indexOf("/checkpoint/block/?next") > -1) {
+  log.warn(
+      "login",
+      "Checkpoint detected. Please log in with a browser to verify."
+  );
+}
+  var userID = maybeCookie[0]
+  .cookieString()
+  .split("=")[1]
+  .toString();
+  
   log.info("login", `Logged in as ${userID}`);
 
   try {
